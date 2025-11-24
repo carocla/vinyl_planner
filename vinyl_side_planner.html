@@ -583,7 +583,7 @@ function renderAllTitles(){
 
 function escapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function getSepValueForRegex(v){ return v==="TAB" ? "\\t" : escapeRegex(v); }
-function getSepValueForExample(v){ return v==="TAB" ? "\\t" : v; }
+function getSepValueForExample(v){ return v==="TAB" ? "\t" : v; }
 
 function parseWithCustomSeps(line){
   const raw=line.trim(); if(!raw) return null;
