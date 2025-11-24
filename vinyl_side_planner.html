@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vinyl Side Planner</title>
+<style>
+  :root {
+    --p5:#3784ad;          /* drag outline ring */
+    --blueLight:#6cc6ff;   /* Side A drop indicator (lighter cyan‑blue) */
+    --blueDark:#2b5f88;    /* Side B drop indicator (dark blue) */
+    --blueFlash:#93c5fd;   /* quick tint on dblclick */
+
+    --max:1080px; --bg:#f6f7fb; --card:#fff; --ink:#0f172a; --muted:#64748b;
+    --ring:var(--p5);
+    --ringA:var(--blueLight);
+    --ringB:var(--blueDark);
+    --ringU:#a3aab8;
+    --ok:#87d1a3;
+    --warn:#b45309; --bad:#b91c1c; --line:#e5e7eb;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  header{max-width:var(--max);margin:20px auto 8px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  h1{font-size:20px;margin:0;letter-spacing:.2px}
+  .subtle{color:var(--muted);font-size:12px}
+  .toolbar{max-width:var(--max);margin:12px auto;padding:0 16px;display:grid;grid-template-columns:1.2fr 1fr;gap:12px}
+  .card-main{display:flex;flex-direction:column;justify-content:space-between;gap:10px}
+  .card{background:var(--card);border-radius:14px;box-shadow:0 2px 12px rgba(2,6,23,.04);padding:12px;border:1px solid var(--line)}
+  .row{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+  .field{display:flex;align-items:center;gap:8px;flex:0 0 auto;white-space:nowrap}
+  .field .chip-input, .field select {flex:0 0 auto}
+  label{font-size:12px;color:#475569;letter-spacing:.2px;display:inline-flex;align-items:center}
+  select,button,input[type=text]{border-radius:10px;padding:10px 12px;border:1px solid var(--line);background:#fff}
+  .select{min-width:110px}
+  input[type=text]{min-width:200px}
+  input.mono{font-variant-numeric:tabular-nums;min-width:120px}
+  select:focus,input:focus,button:focus{outline:2px solid var(--ring);outline-offset:1px}
+  button{cursor:pointer;transition:background .12s ease,border-color .12s ease,transform .06s ease,box-shadow .12s ease}
+  button:active{transform:translateY(1px)}
+  .primary{background:var(--p5);color:#fff;border-color:var(--p5)}
+  .primary:hover{filter:brightness(.97)}
+  .btn-outline{background:#fff;border-color:#d1d5db;color:#111827}
+  .btn-outline:hover{background:#f9fafb}
+  .tiny{font-size:12px;color:var(--muted)}
+  .wrap{max-width:var(--max);margin:8px auto 24px;padding:0 16px;display:grid;gap:16px;grid-template-columns:1fr 1fr 1fr}
+  .panel{background:var(--card);border-radius:14px;box-shadow:0 2px 12px rgba(2,6,23,.04);padding:12px;display:flex;flex-direction:column;min-height:420px;border:1px solid var(--line)}
+  .panel h2{font-size:16px;margin:4px 0 8px;display:flex;align-items:baseline;gap:8px}
+  .totals{margin-left:auto;font-size:12px;display:flex;gap:10px;align-items:center}
+  .total{padding:2px 10px;border-radius:999px;background:#ecfdf5;color: var(--ok);border:1px solid #dcfce7}
+  .total.warn{background:#fffbeb;color: var(--warn);border-color:#fde68a}
+  .total.bad{background:#fef2f2;color: var(--bad);border-color:#fecaca}
+  .bin{flex:1;border:1px dashed var(--line);border-radius:12px;padding:8px;min-height:320px;overflow:auto;position:relative;background:#fafafa}
+
+  .item{position:relative;user-select:none;display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:2px solid transparent;border-radius:12px;padding:10px 12px;margin:6px 2px;cursor:grab;box-shadow:0 1px 3px rgba(2,6,23,.04);
+        transition: border-color .16s ease, box-shadow .16s ease, background-color .14s ease; }
+  .item:active{cursor:grabbing}
+  .item.selected{border-color:#dbeafe;background:#f8fbff}
+  .item.dragging{border-color:var(--ring);box-shadow:0 0 0 3px color-mix(in oklab, var(--ring) 30%, transparent)}
+  .item.dragging .xbtn,.item.dragging .editbtn{display:none !important}
+  .title{font-size:14px;font-weight:500}
+  .unknown{color:var(--muted);font-style:italic}
+  .len{font-variant-numeric:tabular-nums;color:#334155;font-size:13px}
+  .pill{border:1px solid #e5e7eb;background:#f9fafb;font-size:11px;padding:2px 6px;border-radius:999px;color:#475569}
+  .hintline{font-size:12px;color:#94a3b8;margin-top:6px}
+  .import-area{width:100%;min-height:90px;padding:10px;border:1px solid var(--line);border-radius:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;background:#fff}
+  .xbtn,.editbtn{position:absolute;top:6px;width:24px;height:24px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;display:none;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 2px rgba(2,6,23,.04);z-index:2;pointer-events:auto; user-select:none}
+  .xbtn{right:6px}
+  .editbtn{right:36px}
+  .xbtn::after{content:"✕";font-size:13px;line-height:1;color:#64748b}
+  .editbtn::after{content:"✎";font-size:13px;line-height:1;color:#64748b}
+  .item:hover .xbtn,.item:hover .editbtn{display:flex}
+
+  /* v3.26 compact edit mode */
+  .item.editing{background:#fff;border-color:#bfdcff;cursor:default;box-shadow:0 1px 6px rgba(2,6,23,.06); padding:8px 10px;}
+  .editcard{width:100%;display:grid;grid-template-columns:1fr 0.9fr 0.45fr auto;gap:6px;align-items:center;animation:fade .08s ease}
+  @keyframes fade{ from{opacity:.9; transform:translateY(-1px)} to{opacity:1; transform:translateY(0)} }
+  .chip-input{display:flex;align-items:center;background:#fff;border:1px solid #dbeafe;border-radius:8px;padding:4px 8px;gap:6px}
+  .chip-input input{border:none;background:transparent;outline:none;font-size:13px;width:100%}
+  .chip-label{font-size:11px;color:#5b6b86;padding:1px 6px;border-radius:999px;background:#f3f7ff;border:1px solid #dbeafe}
+  .mono{font-variant-numeric:tabular-nums}
+  .actions{display:flex;gap:6px;justify-content:flex-end}
+  .btn{border-radius:8px;padding:6px 10px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-weight:400;font-size:12px}
+  .btn.primary{background:#3a86b7;border-color:#3a86b7;color:#fff;font-weight:500}
+  .btn.ghost{border-color:#e5e7eb;color:#111827}
+  .btn.primary:hover{filter:brightness(.97)}
+  .btn.ghost:hover{background:#f3f4f6}
+
+  .menu-wrap{position:relative;margin-left:auto}
+  .drop-indicator{height:4px;border-radius:999px;margin:2px 0}
+  .drop-A{background:var(--ringA)}   /* distinct cyan-blue */
+  .drop-B{background:var(--ringB)}
+  .drop-U{background:var(--ringU)}
+
+  /* Visual flash + movement transitions */
+.flash-blue{animation:flashblue .38s ease-out}
+@keyframes flashblue{
+  from{background:var(--blueFlash)}
+  to{background:#fff}
+}
+
+/* Currently used for the dblclick move into Unassigned */
+.fade-in{animation:fadein .38s ease-out}
+@keyframes fadein{
+  from{opacity:0; transform:scale(1);}
+  to{opacity:1; transform:scale(1);}
+}
+
+/* Kept in case we want to use it later */
+.fade-out{animation:fadeout .20s ease-out forwards}
+@keyframes fadeout{
+  from{opacity:1; transform:scale(1);}
+  to{opacity:0; transform:scale(.97);}
+}
+
+/* Modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.4);backdrop-filter:saturate(120%) blur(2px);display:none;align-items:center;justify-content:center;z-index:50}
+  .modal{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 12px 28px rgba(2,6,23,.2);padding:16px;max-width:380px;width:92%}
+  .modal h3{margin:0 0 8px;font-size:16px}
+  .modal p{margin:0 0 14px;color:#475569;font-size:13px}
+  .modal .row{justify-content:flex-end}
+
+  /* Force separator controls to keep label+select together too */
+  .sep-block{display:block;width:100%;margin:4px 0}
+  .sep-block .row{display:flex;gap:14px;align-items:center}
+  .sep-field{display:flex;align-items:center;gap:8px;white-space:nowrap}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Vinyl Side Planner — v3.35</h1>
+    <div class="subtle"><b>CTRL-Z</b> to undo, <b>CTRL-SHIFT-Z</b> to redo (<b>CTRL</b> = <b>Command</b> on Mac)</div>
+  </div>
+  <div class="menu-wrap">
+    <button id="menuBtn" class="btn-outline">Menu</button>
+    <div id="menu" class="menu" style="position:absolute; right:0; top:42px; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow: 0 8px 18px rgba(2,6,23,.08); padding:6px; display:none; min-width: 240px; z-index:5;">
+      <div id="exportBtn" class="mitem" style="padding:8px 10px; border-radius:8px; cursor:pointer;">Export JSON</div>
+      <div id="importBtn" class="mitem" style="padding:8px 10px; border-radius:8px; cursor:pointer;">Import JSON <span class="subtle">(or drop file)</span></div>
+      <div class="sep" style="height:1px; background:#e5e7eb; margin:6px 2px;"></div>
+    </div>
+  </div>
+</header>
+
+<section class="toolbar">
+  <div class="card card-main">
+    <div class="row" style="gap:18px;">
+      <div class="field">
+        <label>Disc size:</label>
+        <select id="disc">
+          <option value="12">12&quot; @ 33⅓ (20:00 max)</option>
+          <option value="10">10&quot; @ 33⅓ (14:00 max)</option>
+          <option value="7">7&quot; @ 45 (5:00 max)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Display:</label>
+        <select id="display">
+          <option value="T_DASH" selected>Title - Artist</option>
+          <option value="T_SLASH">Title / Artist</option>
+          <option value="T_COMMA">Title, Artist</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px; gap:18px;">
+      <div class="field">
+        <label for="tname">Title:</label>
+        <div class="chip-input" style="min-width:220px;">
+          <input id="tname" type="text" placeholder="Song title (optional)" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="artist">Artist:</label>
+        <div class="chip-input" style="min-width:200px;">
+          <input id="artist" type="text" placeholder="Artist (optional)" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="tlen">Length:</label>
+        <div class="chip-input" style="min-width:80px;">
+          <input id="tlen" class="mono" type="text" placeholder="mm:ss" />
+        </div>
+      </div>
+
+      <button id="addBtn" class="primary">Add</button>
+      <button id="shuffleBtn" class="btn-outline">Shuffle Fit</button>
+      
+      <button id="clearAll" class="btn-outline" style="margin-left:auto;">Clear All</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div><b>Quick import (paste lines)</b></div>
+
+    <div class="sep-block">
+      <div class="row">
+        <div class="sep-field">
+          <label>Between <i>Title</i> & <i>Artist</i>:</label>
+          <select id="sepTA" class="select">
+            <option value=" - ">-</option>
+            <option value=" — ">—</option>
+            <option value=" / " selected>/</option>
+            <option value=", ">,</option>
+            <option value=" | ">|</option>
+            <option value="TAB">tab</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="sep-block">
+      <div class="row">
+        <div class="sep-field">
+          <label>Between <i>Artist</i> & <i>Time</i>:</label>
+          <select id="sepAT" class="select">
+            <option value=" - ">-</option>
+            <option value=" — ">—</option>
+            <option value=" / " selected>/</option>
+            <option value=", ">,</option>
+            <option value=" | ">|</option>
+            <option value="TAB">tab</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <textarea id="bulk" class="import-area" placeholder=""></textarea>
+    <div class="row" style="margin-top:8px;">
+      <button id="bulkToUnassigned" class="btn-outline">Add All</button>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <section class="panel">
+    <h2>Unassigned</h2>
+    <div id="unassigned" class="bin" data-bin="U"></div>
+    <div class="hintline">Drag tracks to A/B or reorder here. Double-click to return songs to unassigned.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Side A
+      <span class="totals">
+        <span id="aCount" class="pill">0 tracks</span>
+        <span id="aTime" class="total">00:00</span>
+      </span>
+    </h2>
+    <div id="sideA" class="bin" data-bin="A"></div>
+    <div class="hintline">Ideal ~17–18 min for 12&quot;; varies by disc size and music.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Side B
+      <span class="totals">
+        <span id="bCount" class="pill">0 tracks</span>
+        <span id="bTime" class="total">00:00</span>
+      </span>
+    </h2>
+    <div id="sideB" class="bin" data-bin="B"></div>
+    <div class="hintline">End with quieter songs to protect the inner groove.</div>
+  </section>
+</div>
+
+<!-- Modal for Clear All -->
+<div id="modalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <h3>Clear all tracks?</h3>
+    <p>This removes every track and resets Side A/B and Unassigned.</p>
+    <div class="row">
+      <button id="mCancel" class="btn ghost">Cancel</button>
+      <button id="mConfirm" class="btn primary" style="background:#b91c1c;border-color:#b91c1c">Clear All</button>
+    </div>
+  </div>
+</div>
+
+<!-- Full page dropzone for JSON import -->
+<div id="dz" class="dz" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(55,132,173,.08); border:3px dashed var(--p5); z-index:60">
+  <div class="dz-card" style="background:#fff; border:1px solid #d1d5db; border-radius:14px; padding:18px 20px; box-shadow:0 10px 24px rgba(2,6,23,.18); font-size:14px; color:#0f172a">
+    Drop <b>.json</b> to import layout
+  </div>
+</div>
+
+<div class="toastbox" id="toastbox"></div>
+
+<script>
+function showToast(msg, kind="info", ms=1800){
+  const box = document.getElementById("toastbox");
+  if(!box.classList.contains("ready")){
+    box.classList.add("ready");
+    box.style.position="fixed"; box.style.bottom="18px"; box.style.right="18px"; box.style.display="flex"; box.style.flexDirection="column"; box.style.gap="8px"; box.style.zIndex="70";
+  }
+  const t = document.createElement("div");
+  t.style.background="#0f172a"; t.style.color="#fff"; t.style.padding="10px 12px"; t.style.borderRadius="10px"; t.style.boxShadow="0 6px 18px rgba(2,6,23,.22)";
+  t.style.fontSize="13px"; t.style.maxWidth="58vw"; t.style.opacity="0"; t.style.transform="translateY(6px)"; t.style.transition="opacity .16s ease, transform .16s ease";
+  t.textContent = msg;
+  if(kind==="warn"){ t.style.background="#92400e"; }
+  if(kind==="bad"){ t.style.background="#991b1b"; }
+  box.appendChild(t);
+  requestAnimationFrame(()=>{ t.style.opacity="1"; t.style.transform="translateY(0)"; });
+  setTimeout(()=> { t.style.opacity="0"; t.style.transform="translateY(6px)"; setTimeout(()=> t.remove(), 180); }, ms);
+}
+
+let tracks = []; let nextId = 1; let unknownIndex = 0;
+let currentEditingEl = null; let selection = new Set(); let lastClickedInfo = null;
+let dragAnchorEl = null;
+let displayMode = "T_DASH"; // T_DASH, T_SLASH, T_COMMA
+const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+function mmssToSec(s){ const [m,sec] = (s||"").split(":").map(Number); return (m*60 + sec) || 0; }
+function secToMMSS(n){ const m = Math.floor(n/60), s = Math.max(0, n%60); return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; }
+function normalizeLen(raw){
+  raw=(raw||"").trim();
+  if(!raw) return raw;
+  if(/^\d+$/.test(raw)) return `${Number(raw)}:00`;        // "3" -> "3:00"
+  if(/^:\d{1,2}$/.test(raw)){ const s=raw.slice(1); return `0:${String(Number(s)).padStart(2,"0")}`; } // ":5" -> "0:05"
+  const m=raw.match(/^(\d{1,2}):(\d{1,2})$/);
+  if(m){ const mm=Number(m[1]), ss=Number(m[2]); if(Number.isFinite(mm)&&Number.isFinite(ss)) return `${mm}:${String(ss).padStart(2,"0")}`; }
+  return raw;
+}
+function isMMSS(s){ return /^\d{1,2}:\d{2}$/.test((s||"").trim()); }
+function nextUnknown(){ const idx=unknownIndex++ % letters.length; const x=letters[idx]; return { artist:`Artist ${x}`, title:`Track ${x}` }; }
+
+const HISTORY_CAP=200; let undoStack=[]; let redoStack=[];
+function snapshot(){ return JSON.stringify(serialize()); }
+function pushHistory(){ const snap=snapshot(); if(!undoStack.length || undoStack[undoStack.length-1]!==snap){ undoStack.push(snap); if(undoStack.length>HISTORY_CAP) undoStack.shift(); } redoStack=[]; }
+function restoreFromSnap(s){ try{ loadFrom(JSON.parse(s)); }catch(e){} }
+function doUndo(){ if(!undoStack.length) return; const cur=snapshot(); const prev=undoStack.pop(); redoStack.push(cur); restoreFromSnap(prev); showToast("Undid last action."); }
+function doRedo(){ if(!redoStack.length) return; const cur=snapshot(); const nxt=redoStack.pop(); undoStack.push(cur); restoreFromSnap(nxt); showToast("Redo."); }
+
+function displayTitle(t){
+  const a=(t.artist||"").trim();
+  const name=(t.title||"").trim();
+  if(!name && !a){
+    return "Unknown";
+  }
+  if(displayMode==="T_DASH"){
+    if(name && a) return `${name} - ${a}`;
+    if(name && !a) return name;
+    if(!name && a) return `(untitled) - ${a}`;
+    return "Unknown";
+  } else if(displayMode==="T_SLASH"){
+    if(name && a) return `${name} / ${a}`;
+    if(name && !a) return name;
+    if(!name && a) return `(untitled) / ${a}`;
+    return "Unknown";
+  } else { // T_COMMA
+    if(name && a) return `${name}, ${a}`;
+    if(name && !a) return name;
+    if(!name && a) return `(untitled), ${a}`;
+    return "Unknown";
+  }
+}
+
+function buildDragGhost(el){
+  const id = Number(el.dataset.id);
+  const t = tracks.find(x=>x.id===id);
+  const g = document.createElement("div");
+  g.style.position = "fixed"; g.style.left = "-9999px"; g.style.top = "0";
+  g.style.pointerEvents = "none"; g.style.padding = "8px 12px"; g.style.borderRadius = "10px";
+  g.style.background = "#fff"; g.style.border = "2px solid var(--ring)"; g.style.boxShadow = "0 6px 18px rgba(2,6,23,.15)";
+  g.style.font = "14px/1.2 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial";
+  g.textContent = `${displayTitle(t)}  ·  ${t.len}`;
+  document.body.appendChild(g);
+  return g;
+}
+
+function makeItem(t){
+  const el=document.createElement("div"); el.className="item"; el.draggable=true; el.dataset.id=t.id; el.tabIndex=0;
+  const label=document.createElement("div"); label.className="title"; label.textContent=displayTitle(t);
+  if(!(t.artist||"").trim() && !(t.title||"").trim()) label.classList.add("unknown");
+  const len=document.createElement("div"); len.className="len"; len.textContent=t.len;
+  const edit=document.createElement("button"); edit.className="editbtn"; edit.title="Edit track";
+  edit.addEventListener("mousedown", e=>{e.stopPropagation(); e.preventDefault();});
+  edit.addEventListener("click", e=>{e.stopPropagation(); e.preventDefault(); enterEdit(el);});
+  const x=document.createElement("button"); x.className="xbtn"; x.title="Remove track";
+  x.addEventListener("mousedown", e=>{e.stopPropagation(); e.preventDefault();});
+  x.addEventListener("click", e=>{e.stopPropagation(); e.preventDefault(); pushHistory(); removeItem(el);});
+  el.append(label,len,edit,x);
+
+  el.addEventListener("click", e=>{ if(el.classList.contains("editing")) return; handleSelectionClick(el,e); });
+  el.addEventListener("dblclick", e=>{
+  e.preventDefault();
+  e.stopPropagation();
+  const parentBin = el.parentElement?.dataset?.bin || "U";
+  if(parentBin === "U"){ return; }
+  if(currentEditingEl && currentEditingEl!==el){ if(!commitCurrentEdit()) return; }
+
+  // Move immediately to Unassigned, then do a quick fade/flash to orient the eye
+  const uni = document.getElementById("unassigned");
+  uni.appendChild(el);
+  el.classList.add("fade-in","flash-blue");
+    calcAndPaintTotals();
+    showToast("Sent to Unassigned");
+    setTimeout(()=>{ el.classList.remove("fade-in","flash-blue"); }, 420);
+});
+  el.addEventListener("dragstart", e=>{
+    dragAnchorEl = el;
+    const group = getDragGroup(el);
+    group.forEach(n=>n.classList.add("dragging"));
+    e.dataTransfer.setData("text/plain", "drag");
+    const ghost = buildDragGhost(el);
+    e.dataTransfer.setDragImage(ghost, 10, 10);
+    setTimeout(()=> ghost.remove(), 0);
+    e.dataTransfer.effectAllowed="move";
+  });
+  el.addEventListener("dragend", ()=>{
+    $$(".item.dragging").forEach(n=>n.classList.remove("dragging"));
+    clearDropIndicator();
+    dragAnchorEl = null;
+  });
+  return el;
+}
+
+function handleSelectionClick(el,e){
+  const bin=el.parentElement; const items=Array.from(bin.querySelectorAll(".item")); const idx=items.indexOf(el); const id=Number(el.dataset.id);
+  if(e.shiftKey && lastClickedInfo && lastClickedInfo.binId===bin.id){
+    const start=Math.min(lastClickedInfo.index,idx); const end=Math.max(lastClickedInfo.index,idx);
+    clearSelection(); for(let i=start;i<=end;i++){ selectItem(items[i]); }
+  } else if(e.ctrlKey||e.metaKey){
+    if(selection.has(id)) deselectItem(el); else selectItem(el); lastClickedInfo={binId:bin.id,index:idx};
+  } else {
+    clearSelection(); selectItem(el); lastClickedInfo={binId:bin.id,index:idx};
+  }
+}
+function selectItem(el){ selection.add(Number(el.dataset.id)); el.classList.add("selected"); }
+function deselectItem(el){ selection.delete(Number(el.dataset.id)); el.classList.remove("selected"); }
+function clearSelection(){ selection.clear(); $$(".item.selected").forEach(n=>n.classList.remove("selected")); }
+function getSelectedItems(){ if(!selection.size) return []; const nodes=$$(".item").filter(n=>selection.has(Number(n.dataset.id))); return nodes.sort((a,b)=> a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1); }
+function getDragGroup(anchorEl){ const selected=getSelectedItems(); if(selected.length && selected.includes(anchorEl)) return selected; return [anchorEl]; }
+function removeItem(el){ if(currentEditingEl===el) currentEditingEl=null; el.remove(); calcAndPaintTotals(); }
+
+["sideA","sideB","unassigned"].forEach(id=> enableDnD($("#"+id)));
+let indicatorEl=null;
+function ensureIndicator(bin){
+  if(!indicatorEl){ indicatorEl=document.createElement("div"); indicatorEl.className="drop-indicator"; }
+  indicatorEl.classList.remove("drop-A","drop-B","drop-U");
+  const binKey = bin.dataset.bin || "U";
+  indicatorEl.classList.add(binKey==="A"?"drop-A":binKey==="B"?"drop-B":"drop-U");
+  return indicatorEl;
+}
+function clearDropIndicator(){ if(indicatorEl && indicatorEl.parentElement){ indicatorEl.parentElement.removeChild(indicatorEl); } }
+function enableDnD(bin){
+  bin.addEventListener("dragenter", e=>{
+    if(!dragAnchorEl) return;
+    ensureIndicator(bin);
+    if(!bin.querySelector(".item")){ bin.appendChild(indicatorEl); }
+  }, true);
+  bin.addEventListener("dragover", e=>{
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if(!dragAnchorEl) return;
+    ensureIndicator(bin);
+    const group=getDragGroup(dragAnchorEl);
+    const y=e.clientY;
+    const items=Array.from(bin.querySelectorAll(".item")).filter(n=> !group.includes(n));
+    let placed=false;
+    for(const item of items){
+      const rect=item.getBoundingClientRect(); const mid=rect.top+rect.height/2;
+      if(y < mid){
+        if(item.previousSibling !== indicatorEl){
+          bin.insertBefore(indicatorEl, item);
+        }
+        placed=true;
+        break;
+      }
+    }
+    if(!placed){
+      if(indicatorEl.parentElement !== bin || indicatorEl.nextSibling !== null){
+        bin.appendChild(indicatorEl);
+      }
+    }
+  }, true);
+  bin.addEventListener("drop", e=>{
+    e.preventDefault();
+    if(!dragAnchorEl) return;
+    const group=getDragGroup(dragAnchorEl);
+    if(indicatorEl && indicatorEl.parentElement===bin){
+      group.forEach(node=> bin.insertBefore(node, indicatorEl));
+    } else {
+      const targetItem=e.target.closest(".item");
+      if(targetItem && targetItem.parentElement===bin){ group.forEach(node=> bin.insertBefore(node, targetItem)); }
+      else{ group.forEach(node=> bin.appendChild(node)); }
+    }
+    clearDropIndicator(); calcAndPaintTotals();
+  }, true);
+  bin.addEventListener("click", e=>{ if(!e.target.closest(".item")) clearSelection(); });
+}
+
+/* ----- v3.26 Edit UI ----- */
+function enterEdit(el){
+  clearSelection();
+  if(currentEditingEl && currentEditingEl!==el){ if(!commitCurrentEdit()) return; }
+  const id=Number(el.dataset.id); const t=tracks.find(x=>x.id===id);
+  currentEditingEl=el; el.classList.add("editing"); el.draggable=false; el.innerHTML="";
+  const wrap=document.createElement("div"); wrap.className="editcard"; wrap.addEventListener("click", e=> e.stopPropagation());
+
+  const titleWrap=document.createElement("div"); titleWrap.className="chip-input";
+  const nIn=document.createElement("input"); nIn.className="edit-title"; nIn.type="text"; nIn.placeholder="Title"; nIn.value=t.title||"";
+  titleWrap.append(nIn);
+
+  const artistWrap=document.createElement("div"); artistWrap.className="chip-input";
+  const aIn=document.createElement("input"); aIn.className="edit-artist"; aIn.type="text"; aIn.placeholder="Artist"; aIn.value=t.artist||"";
+  artistWrap.append(aIn);
+
+  const lenWrap=document.createElement("div"); lenWrap.className="chip-input mono";
+  const lenTag=document.createElement("span"); lenTag.className="chip-label"; lenTag.textContent="mm:ss";
+  const lIn=document.createElement("input"); lIn.className="edit-len"; lIn.type="text"; lIn.placeholder="mm:ss"; lIn.value=t.len; attachLenFormatter(lIn);
+  lenWrap.append(lenTag,lIn);
+
+  const actions=document.createElement("div"); actions.className="actions";
+  const save=document.createElement("button"); save.className="btn primary"; save.textContent="Save";
+  save.addEventListener("click", ()=>{ pushHistory(); if(exitEdit(el,id,aIn.value,nIn.value,lIn.value)) currentEditingEl=null; });
+  const cancel=document.createElement("button"); cancel.className="btn ghost"; cancel.textContent="Cancel";
+  cancel.addEventListener("click", ()=>{ renderItem(el,t); currentEditingEl=null; });
+
+  wrap.append(titleWrap,artistWrap,lenWrap,actions); actions.append(cancel,save); el.appendChild(wrap); nIn.focus();
+  [aIn,nIn,lIn].forEach(inp=> inp.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); pushHistory(); if(exitEdit(el,id,aIn.value,nIn.value,lIn.value)) currentEditingEl=null; } }));
+}
+function attachLenFormatter(input){ input.addEventListener("blur", ()=>{ const out=normalizeLen(input.value); if(isMMSS(out)) input.value=out; }); }
+function handleGlobalPointerDown(e){
+  if(!currentEditingEl) return;
+  if(currentEditingEl.contains(e.target)) return;
+  const id=Number(currentEditingEl.dataset.id);
+  const aIn=currentEditingEl.querySelector(".edit-artist");
+  const nIn=currentEditingEl.querySelector(".edit-title");
+  const lIn=currentEditingEl.querySelector(".edit-len");
+  lIn.value=normalizeLen(lIn.value); pushHistory();
+  if(!exitEdit(currentEditingEl,id,aIn.value,nIn.value,lIn.value)){ e.preventDefault(); lIn.focus(); } else { currentEditingEl=null; }
+}
+document.addEventListener("pointerdown", handleGlobalPointerDown, true);
+document.addEventListener("click", (e)=>{
+  if(!currentEditingEl) return;
+  if(currentEditingEl.contains(e.target)) return;
+  const id=Number(currentEditingEl.dataset.id);
+  const aIn=currentEditingEl.querySelector(".edit-artist");
+  const nIn=currentEditingEl.querySelector(".edit-title");
+  const lIn=currentEditingEl.querySelector(".edit-len");
+  lIn.value=normalizeLen(lIn.value); pushHistory();
+  if(!exitEdit(currentEditingEl,id,aIn.value,nIn.value,lIn.value)){ lIn.focus(); } else { currentEditingEl=null; }
+}, true);
+
+function exitEdit(el,id,artist,title,lenRaw){
+  const len=normalizeLen(lenRaw);
+  if(!isMMSS(len)){ showToast("Enter length as mm:ss (e.g., 3:45).","bad",2200); return false; }
+  const t=tracks.find(x=>x.id===id); t.artist=(artist||"").trim(); t.title=(title||"").trim(); t.len=len; renderItem(el,t); calcAndPaintTotals(); return true;
+}
+function commitCurrentEdit(){
+  if(!currentEditingEl) return true;
+  const id=Number(currentEditingEl.dataset.id);
+  const aIn=currentEditingEl.querySelector(".edit-artist");
+  const nIn=currentEditingEl.querySelector(".edit-title");
+  const lIn=currentEditingEl.querySelector(".edit-len");
+  lIn.value=normalizeLen(lIn.value);
+  if(!isMMSS(lIn.value)){ showToast("Fix the length (mm:ss) before saving.","bad"); return false; }
+  pushHistory(); const ok=exitEdit(currentEditingEl,id,aIn.value,nIn.value,lIn.value); if(ok) currentEditingEl=null; return ok;
+}
+function renderItem(el,t){
+  el.classList.remove("editing"); el.draggable=true; el.innerHTML="";
+  const label=document.createElement("div"); label.className="title"; label.textContent=displayTitle(t);
+  const len=document.createElement("div"); len.className="len"; len.textContent=t.len;
+  const edit=document.createElement("button"); edit.className="editbtn"; edit.title="Edit track";
+  edit.addEventListener("mousedown", e=>{e.stopPropagation(); e.preventDefault();}); edit.addEventListener("click", e=>{e.stopPropagation(); e.preventDefault(); enterEdit(el);});
+  const x=document.createElement("button"); x.className="xbtn"; x.title="Remove track";
+  x.addEventListener("mousedown", e=>{e.stopPropagation(); e.preventDefault();}); x.addEventListener("click", e=>{e.stopPropagation(); e.preventDefault(); pushHistory(); removeItem(el);});
+  el.append(label,len,edit,x);
+}
+
+function renderAllTitles(){
+  $$(".item").forEach(el=>{
+    const id=Number(el.dataset.id);
+    const t=tracks.find(x=>x.id===id);
+    if(!t) return;
+    const label=el.querySelector(".title");
+    if(label) label.textContent=displayTitle(t);
+  });
+}
+
+function escapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function getSepValueForRegex(v){ return v==="TAB" ? "\\t" : escapeRegex(v); }
+function getSepValueForExample(v){ return v==="TAB" ? "\\t" : v; }
+
+function parseWithCustomSeps(line){
+  const raw=line.trim(); if(!raw) return null;
+  const sepTA = $("#sepTA").value; const sepAT = $("#sepAT").value;
+  const s1 = getSepValueForRegex(sepTA); const s2 = getSepValueForRegex(sepAT);
+  const re = new RegExp(`^\\s*(.+?)\\s*${s1}\\s*(.+?)\\s*${s2}\\s*(\\d{1,2}:\\d{2})\\s*$`);
+  const m = raw.match(re);
+  if(m) return { title:m[1].trim(), artist:m[2].trim(), len:m[3] };
+  const re2 = new RegExp(`^\\s*(.+?)\\s*${s2}\\s*(\\d{1,2}:\\d{2})\\s*$`);
+  const m2 = raw.match(re2);
+  if(m2) return { title:m2[1].trim(), artist:"", len:m2[2] };
+  const m3 = raw.match(/^(.+?)\s*,\s*(\d{1,2}:\d{2})\s*$/);
+  if(m3) return { title:m3[1].trim(), artist:"", len:m3[2] };
+  return null;
+}
+
+function updateImportExample(){
+  const sepTA = $("#sepTA").value;
+  const sepAT = $("#sepAT").value;
+  const sTA = getSepValueForExample(sepTA);
+  const sAT = getSepValueForExample(sepAT);
+  const ex = [
+    `Fade Into You${sTA}Mazzy Star${sAT}4:56`,
+    `Just Like Heaven${sTA}The Cure${sAT}3:32`,
+    `Bizarre Love Triangle${sTA}New Order${sAT}4:23`
+  ].join("\n");
+  const ta = $("#bulk");
+  if(!ta.value.trim()){ ta.placeholder = ex; }
+}
+
+function calcAndPaintTotals(){
+  const disc=$("#disc").value; const max={ "12":1200, "10":840, "7":300 }[disc]; const ideal={ "12":1020, "10":720, "7":240 }[disc];
+  ["sideA","sideB"].forEach(binId=>{
+    const items=$$("#"+binId+" .item");
+    const sum=items.reduce((acc,i)=>{ const t=tracks.find(x=>x.id===Number(i.dataset.id)); return acc+(t?mmssToSec(t.len):0); },0);
+    $("#"+(binId==="sideA"?"aCount":"bCount")).textContent = `${items.length} ${items.length===1?"track":"tracks"}`;
+    const node=$("#"+(binId==="sideA"?"aTime":"bTime")); node.textContent=secToMMSS(sum); node.className="total"; if(sum>max) node.classList.add("bad"); else if(sum>ideal) node.classList.add("warn");
+  });
+  persistToHash();
+}
+
+function serialize(){
+  const idsIn=binId=> $$("#"+binId+" .item").map(n=>Number(n.dataset.id));
+  return { disc:$("#disc").value, display:displayMode, tracks, bins:{A:idsIn("sideA"), B:idsIn("sideB"), U:idsIn("unassigned")}, nextId, unknownIndex };
+}
+function loadFrom(obj){
+  if(!obj) return;
+  $("#disc").value=obj.disc||"12"; displayMode=obj.display||"T_DASH"; $("#display").value=displayMode;
+  tracks=Array.isArray(obj.tracks)?obj.tracks:[];
+  nextId=obj.nextId || (tracks.reduce((m,t)=>Math.max(m,t.id),0)+1); unknownIndex=obj.unknownIndex||0;
+  const map=new Map(tracks.map(t=>[t.id,t])); ["sideA","sideB","unassigned"].forEach(id=> $("#"+id).innerHTML="");
+  (obj.bins?.A||[]).forEach(id=>{const t=map.get(id); if(t) $("#sideA").appendChild(makeItem(t));});
+  (obj.bins?.B||[]).forEach(id=>{const t=map.get(id); if(t) $("#sideB").appendChild(makeItem(t));});
+  (obj.bins?.U||[]).forEach(id=>{const t=map.get(id); if(t) $("#unassigned").appendChild(makeItem(t));});
+  renderAllTitles();
+  calcAndPaintTotals(); clearSelection();
+  updateImportExample();
+}
+function persistToHash(){
+  const data=serialize();
+  try{ const json=JSON.stringify(data); const b64=btoa(unescape(encodeURIComponent(json))); location.hash="#"+b64; localStorage.setItem("vinyl_planner_v3_29", json); }catch(e){}
+}
+
+function addTrack(title,artist,lenRaw,bin="unassigned"){
+  if(!commitCurrentEdit()) return;
+  artist=(artist||"").trim();
+  title=(title||"").trim();
+  const len=normalizeLen((lenRaw||"").trim());
+  if(!/^\d{1,2}:\d{2}$/.test(len)){
+    showToast("Enter length as mm:ss.","bad");
+    return;
+  }
+  pushHistory();
+  // Only use unknown defaults if at least one of artist/title is provided
+  if(artist || title){
+    if(!artist || !title){
+      const d = nextUnknown();
+      artist = artist || d.artist;
+      title  = title  || d.title;
+    }
+  }else{
+    // both artist and title blank: keep them blank
+  }
+  const t={id:nextId++, artist, title, len};
+  tracks.push(t);
+  $("#"+bin).appendChild(makeItem(t));
+  calcAndPaintTotals();
+  $("#artist").value="";
+  $("#tname").value="";
+  $("#tlen").value="";
+}
+
+/* -------- Bulk Import with custom separators -------- */
+$("#sepTA").addEventListener("change", updateImportExample);
+$("#sepAT").addEventListener("change", updateImportExample);
+
+$("#bulkToUnassigned").addEventListener("click", ()=>{
+  const ta = $("#bulk");
+  const lines = ta.value.split(/\r?\n/);
+  let added=0, failed=[];
+  for(let i=0;i<lines.length;i++){
+    const p = parseWithCustomSeps(lines[i]);
+    if(!p){ if(lines[i].trim()) failed.push(i+1); continue; }
+    addTrack(p.title, p.artist, p.len, "unassigned"); added++;
+  }
+  if(added) showToast(`Added ${added} ${added===1?"track":"tracks"} to Unassigned.`);
+  if(failed.length) showToast(`Skipped lines: ${failed.join(", ")}`, "warn", 2600);
+  ta.value = ""; updateImportExample();
+});
+
+/* -------- Shuffle Fit (undoable) -------- */
+function shuffleArray(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+function shuffleFit(){
+  if(!commitCurrentEdit()) return;
+  pushHistory(); // make undoable
+  const disc=$("#disc").value; const max={ "12":1200, "10":840, "7":300 }[disc];
+  const allIds=[...$$("#sideA .item"), ...$$("#sideB .item"), ...$$("#unassigned .item")].map(n=>Number(n.dataset.id));
+  const pool=shuffleArray(allIds.slice());
+  $("#sideA").innerHTML=""; $("#sideB").innerHTML=""; $("#unassigned").innerHTML="";
+  let aSum=0, bSum=0;
+  for(const id of pool){
+    const t = tracks.find(x=>x.id===id); if(!t) continue;
+    const len=mmssToSec(t.len);
+    if(aSum + len <= max){ $("#sideA").appendChild(makeItem(t)); aSum += len; }
+    else if(bSum + len <= max){ $("#sideB").appendChild(makeItem(t)); bSum += len; }
+    else { $("#unassigned").appendChild(makeItem(t)); }
+  }
+  calcAndPaintTotals();
+  showToast("Shuffled & fit into A/B. Overflow in Unassigned.");
+}
+$("#shuffleBtn").addEventListener("click", shuffleFit);
+// Keyboard: Cmd/Ctrl+Z
+window.addEventListener("keydown", (e)=>{
+  if((e.metaKey||e.ctrlKey) && !e.shiftKey && e.key.toLowerCase()==="z"){ e.preventDefault(); doUndo(); }
+});
+
+/* -------- Controls & Menu -------- */
+$("#addBtn").addEventListener("click", ()=> addTrack($("#tname").value, $("#artist").value, $("#tlen").value));
+
+// Custom modal wiring for Clear All
+const mb = $("#modalBackdrop");
+$("#clearAll").addEventListener("click", ()=>{ mb.style.display="flex"; });
+$("#mCancel").addEventListener("click", ()=>{ mb.style.display="none"; });
+$("#mConfirm").addEventListener("click", ()=>{ doClearAll(); mb.style.display="none"; });
+mb.addEventListener("click", (e)=>{ if(e.target===mb) mb.style.display="none"; });
+
+function doClearAll(){ pushHistory(); tracks=[]; nextId=1; unknownIndex=0; ["sideA","sideB","unassigned"].forEach(id=> $("#"+id).innerHTML=""); calcAndPaintTotals(); clearSelection(); showToast("Cleared."); }
+
+$("#disc").addEventListener("change", ()=>{ pushHistory(); calcAndPaintTotals(); });
+$("#display").addEventListener("change", ()=>{ displayMode=$("#display").value; renderAllTitles(); persistToHash(); });
+
+const menuBtn=$("#menuBtn"); const menu=$("#menu");
+function closeMenu(){ menu.style.display="none"; }
+menuBtn.addEventListener("click", e=>{ e.stopPropagation(); menu.style.display = (menu.style.display==="block"?"none":"block"); });
+document.addEventListener("click", ()=> closeMenu());
+
+// Export/Import/Share
+$("#exportBtn").addEventListener("click", ()=>{
+  if(!commitCurrentEdit()) return;
+  const blob=new Blob([JSON.stringify(serialize(),null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download="vinyl_planner_layout.json"; a.click();
+  URL.revokeObjectURL(url);
+  showToast("Exported JSON.");
+  closeMenu();
+});
+
+// Import via picker or drag/drop
+$("#importBtn").addEventListener("click", ()=>{
+  const inp=document.createElement("input"); inp.type="file"; inp.accept="application/json";
+  inp.onchange=()=>{ const file=inp.files[0]; if(!file) return; const reader=new FileReader();
+    reader.onload=e=>{ pushHistory(); loadFrom(JSON.parse(e.target.result)); showToast("Imported."); closeMenu(); };
+    reader.readAsText(file);
+  };
+  inp.click();
+});
+// Global drag/drop
+const dz = $("#dz");
+function showDZ(){ dz.style.display="flex"; }
+function hideDZ(){ dz.style.display="none"; }
+window.addEventListener("dragenter", (e)=>{
+  if(e.dataTransfer && Array.from(e.dataTransfer.types||[]).includes("Files")){ showDZ(); }
+});
+window.addEventListener("dragover", (e)=>{
+  if(dz.style.display==="flex"){ e.preventDefault(); }
+});
+window.addEventListener("dragleave", (e)=>{
+  if(e.target===dz) hideDZ();
+});
+dz.addEventListener("drop", (e)=>{
+  e.preventDefault(); hideDZ();
+  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload = evt => { try{ pushHistory(); loadFrom(JSON.parse(evt.target.result)); showToast("Imported from dropped file."); closeMenu(); }catch(err){ showToast("Invalid JSON.","bad"); } };
+  reader.readAsText(file);
+});
+
+/* -------- Boot -------- */
+const seed={
+  disc:"12",
+  display:"T_DASH",
+  tracks:[
+    {id:1, artist:"", title:"Señora Diana la vi", len:"2:46"},
+    {id:2, artist:"", title:"Looking Out for You", len:"2:59"},
+    {id:3, artist:"The Cure", title:"Just Like Heaven", len:"3:32"},
+    {id:4, artist:"", title:"Wichita Lineman", len:"3:07"},
+    {id:5, artist:"The Radio Dept.", title:"Pulling Our Weight", len:"3:20"},
+    {id:6, artist:"Carpenters", title:"(They Long to Be) Close to You", len:"4:36"},
+    {id:7, artist:"", title:"Did I Flounder", len:"4:00"},
+    {id:8, artist:"New Order", title:"Bizarre Love Triangle", len:"4:23"},
+    {id:9, artist:"10cc", title:"I'm Not in Love", len:"6:07"},
+    {id:10, artist:"Mazzy Star", title:"Fade Into You", len:"4:56"}
+  ],
+  bins:{A:[1,2,3,4,5,6], B:[7,8,9,10], U:[]}, nextId:11, unknownIndex:0
+};
+function boot(){
+  const fromHash=(location.hash.length>1);
+  const fromLocal=localStorage.getItem("vinyl_planner_v3_29");
+  loadFrom(fromHash ? JSON.parse(decodeURIComponent(escape(atob(location.hash.substring(1))))) :
+          fromLocal ? JSON.parse(fromLocal) : seed);
+  pushHistory();
+  updateImportExample();
+}
+boot();
+</script>
+</body>
+</html>
