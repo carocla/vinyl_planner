@@ -7,9 +7,9 @@
 <style>
   :root {
     --p5:#3784ad;          /* drag outline ring */
-    --blueLight:#6cc6ff;   /* Side A drop indicator (lighter cyan‑blue) */
+    --blueLight:#6cc6ff;   /* Side A drop indicator (lighter blue) */
     --blueDark:#2b5f88;    /* Side B drop indicator (dark blue) */
-    --blueFlash:#93c5fd;   /* quick tint on dblclick */
+    --blueFlash:#93c5fd;   /* tint on doubleclick */
 
     --max:1080px; --bg:#f6f7fb; --card:#fff; --ink:#0f172a; --muted:#64748b;
     --ring:var(--p5);
@@ -88,7 +88,7 @@
 
   .menu-wrap{position:relative;margin-left:auto}
   .drop-indicator{height:4px;border-radius:999px;margin:2px 0}
-  .drop-A{background:var(--ringA)}   /* distinct cyan-blue */
+  .drop-A{background:var(--ringA)}   /* cyan-blue */
   .drop-B{background:var(--ringB)}
   .drop-U{background:var(--ringU)}
 
@@ -120,7 +120,6 @@
   .modal p{margin:0 0 14px;color:#475569;font-size:13px}
   .modal .row{justify-content:flex-end}
 
-  /* Force separator controls to keep label+select together too */
   .sep-block{display:block;width:100%;margin:4px 0}
   .sep-block .row{display:flex;gap:14px;align-items:center}
   .sep-field{display:flex;align-items:center;gap:8px;white-space:nowrap}
