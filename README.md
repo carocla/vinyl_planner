@@ -20,7 +20,7 @@ After using it to plan my own record, I shared it with the seller who pressed my
 * **History:** Undo (`Ctrl+Z`) and Redo (`Ctrl+Shift+Z`) support.
 * **JSON Export/Import:** Save your layout as a JSON to keep for later, or drag-and-drop a `.json` file straight into the browser to load a previous tracklist.
 
-## 💻 Technical Details
+## Technical Details
 
 This is a **zero-dependency** frontend project. Real simple.
 
