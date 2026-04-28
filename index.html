@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vinyl Side Planner</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Vinyl Side Planner</h1>
+      <div class="subtle"><b>CTRL-Z</b> to undo, <b>CTRL-SHIFT-Z</b> to redo (<b>CTRL</b> = <b>Command</b> on Mac)</div>
+    </div>
+    <div class="menu-wrap">
+      <button id="menuBtn" class="btn-outline">Menu</button>
+      <div id="menu" class="menu" style="position:absolute; right:0; top:42px; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow: 0 8px 18px rgba(2,6,23,.08); padding:6px; display:none; min-width: 240px; z-index:5;">
+        <div id="exportBtn" class="mitem" style="padding:8px 10px; border-radius:8px; cursor:pointer;">Export JSON</div>
+        <div id="importBtn" class="mitem" style="padding:8px 10px; border-radius:8px; cursor:pointer;">Import JSON <span class="subtle">(or drop file)</span></div>
+        <div class="sep" style="height:1px; background:#e5e7eb; margin:6px 2px;"></div>
+      </div>
+    </div>
+  </header>
+
+  <section class="toolbar">
+    <div class="card card-main">
+      <div class="row" style="gap:18px;">
+        <div class="field">
+          <label>Disc size:</label>
+          <select id="disc">
+            <option value="12">12&quot; @ 33⅓ (20:00 max)</option>
+            <option value="10">10&quot; @ 33⅓ (14:00 max)</option>
+            <option value="7">7&quot; @ 45 (5:00 max)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Display:</label>
+          <select id="display">
+            <option value="T_DASH" selected>Title - Artist</option>
+            <option value="T_SLASH">Title / Artist</option>
+            <option value="T_COMMA">Title, Artist</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px; gap:18px;">
+        <div class="field">
+          <label for="tname">Title:</label>
+          <div class="chip-input" style="min-width:220px;">
+            <input id="tname" type="text" placeholder="Song title (optional)" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="artist">Artist:</label>
+          <div class="chip-input" style="min-width:200px;">
+            <input id="artist" type="text" placeholder="Artist (optional)" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="tlen">Length:</label>
+          <div class="chip-input" style="min-width:80px;">
+            <input id="tlen" class="mono" type="text" placeholder="mm:ss" />
+          </div>
+        </div>
+
+        <button id="addBtn" class="primary">Add</button>
+        <button id="shuffleBtn" class="btn-outline">Shuffle Fit</button>
+        
+        <button id="clearAll" class="btn-outline" style="margin-left:auto;">Clear All</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div><b>Quick import (paste lines)</b></div>
+
+      <div class="sep-block">
+        <div class="row">
+          <div class="sep-field">
+            <label>Between&nbsp;<i>Title</i>&nbsp;&amp;&nbsp;<i>Artist</i>:</label>
+            <select id="sepTA" class="select">
+              <option value=" - ">-</option>
+              <option value=" — ">—</option>
+              <option value=" / " selected>/</option>
+              <option value=", ">,</option>
+              <option value=" | ">|</option>
+              <option value="TAB">tab</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="sep-block">
+        <div class="row">
+          <div class="sep-field">
+            <label>Between&nbsp;<i>Artist</i>&nbsp;&amp;&nbsp;<i>Time</i>:</label>
+            <select id="sepAT" class="select">
+              <option value=" - ">-</option>
+              <option value=" — ">—</option>
+              <option value=" / " selected>/</option>
+              <option value=", ">,</option>
+              <option value=" | ">|</option>
+              <option value="TAB">tab</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <textarea id="bulk" class="import-area" placeholder=""></textarea>
+      <div class="row" style="margin-top:8px;">
+        <button id="bulkToUnassigned" class="btn-outline">Add All</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <section class="panel">
+      <h2>Unassigned</h2>
+      <div id="unassigned" class="bin" data-bin="U"></div>
+      <div class="hintline">Drag tracks to A/B or reorder here. Double-click to return songs to unassigned.</div>
+    </section>
+
+    <section class="panel">
+      <h2>Side A
+        <span class="totals">
+          <span id="aCount" class="pill">0 tracks</span>
+          <span id="aTime" class="total">00:00</span>
+        </span>
+      </h2>
+      <div id="sideA" class="bin" data-bin="A"></div>
+      <div class="hintline">Ideal ~17–18 min for 12&quot;; varies by disc size and music.</div>
+    </section>
+
+    <section class="panel">
+      <h2>Side B
+        <span class="totals">
+          <span id="bCount" class="pill">0 tracks</span>
+          <span id="bTime" class="total">00:00</span>
+        </span>
+      </h2>
+      <div id="sideB" class="bin" data-bin="B"></div>
+      <div class="hintline">End with quieter songs to protect the inner groove.</div>
+    </section>
+  </div>
+
+  <div id="modalBackdrop" class="modal-backdrop">
+    <div class="modal">
+      <h3>Clear all tracks?</h3>
+      <p>This removes every track and resets Side A/B and Unassigned.</p>
+      <div class="row">
+        <button id="mCancel" class="btn ghost">Cancel</button>
+        <button id="mConfirm" class="btn primary" style="background:#b91c1c;border-color:#b91c1c">Clear All</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="dz" class="dz" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(55,132,173,.08); border:3px dashed var(--p5); z-index:60">
+    <div class="dz-card" style="background:#fff; border:1px solid #d1d5db; border-radius:14px; padding:18px 20px; box-shadow:0 10px 24px rgba(2,6,23,.18); font-size:14px; color:#0f172a">
+      Drop <b>.json</b> to import layout
+    </div>
+  </div>
+
+  <div class="toastbox" id="toastbox"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
