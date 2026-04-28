@@ -30,7 +30,7 @@ This is a **zero-dependency** frontend project. Real simple.
 
 ### Running Locally
 
-With no build step, running this vinyl planner locally is as simple as cloning the repository and opening the HTML file:
+Running this vinyl planner locally is as simple as the app itself:
 
 ```bash
 git clone https://github.com/carocla/vinyl-side-planner.git
