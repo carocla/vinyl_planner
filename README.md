@@ -2,7 +2,7 @@
 
 A browser-based tool to help you curate the perfect tracklist for custom vinyl records. It helps manage Side A and Side B time constraints, track total runtimes, and allows for JSON/raw text import and export.
 
-**[Try the Live App Here](https://vinyl-planner.neocities.org)**
+**[Check out the Live App Here](https://vinyl-planner.neocities.org)**
 
 
 ## Why?
